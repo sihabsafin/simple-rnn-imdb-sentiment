@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # ======================================================
-# DARK / LIGHT MODE (WORKING PROPERLY)
+# DARK / LIGHT MODE
 # ======================================================
 dark_mode = st.toggle("🌗 Dark / Light Mode", value=True)
 
@@ -33,7 +33,7 @@ else:
     subtext_color = "#334155"
 
 # ======================================================
-# CUSTOM CSS (DARK/LIGHT SAFE)
+# CUSTOM CSS
 # ======================================================
 st.markdown(f"""
 <style>
@@ -70,24 +70,20 @@ footer {{
 """, unsafe_allow_html=True)
 
 # ======================================================
-# SAFETY CHECK
+# MODEL PATH + SAFETY CHECK (CORRECT ORDER)
 # ======================================================
 MODEL_PATH = "simple_rnn_imdb.keras"
-model = tf.keras.models.load_model(MODEL_PATH)
-
 
 if not os.path.exists(MODEL_PATH):
-    st.error("❌ Model file not found: simple_rnn_imdb.h5")
+    st.error("❌ Model file not found: simple_rnn_imdb.keras")
     st.stop()
 
 # ======================================================
-# LOAD MODEL (KERAS 3 SAFE – FIXED)
+# LOAD MODEL + WORD INDEX (ONLY ONCE)
 # ======================================================
+@st.cache_resource
 def load_model_and_vocab():
-    model = tf.keras.models.load_model(
-        MODEL_PATH,
-        compile=False  # 🔥 CRITICAL FIX
-    )
+    model = tf.keras.models.load_model(MODEL_PATH)
     word_index = imdb.get_word_index()
     return model, word_index
 
@@ -100,7 +96,7 @@ MAX_LEN = 500
 # ======================================================
 def preprocess_text(text):
     words = text.lower().strip().split()
-    encoded = [word_index.get(word, 2) + 3 for word in words]
+    encoded = [word_index.get(w, 2) + 3 for w in words]
     padded = sequence.pad_sequences([encoded], maxlen=MAX_LEN)
     return padded, len(encoded)
 
@@ -122,7 +118,7 @@ def explain_sentence(text):
     return explanations if explanations else ["ℹ️ No strong emotional keywords detected"]
 
 # ======================================================
-# SESSION STATE (HISTORY)
+# SESSION STATE
 # ======================================================
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -140,7 +136,7 @@ with st.container():
     st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     # ==================================================
-    # EXAMPLE BUTTONS
+    # EXAMPLES
     # ==================================================
     c1, c2, c3 = st.columns(3)
 
@@ -153,14 +149,9 @@ with st.container():
     if c3.button("😐 Ambiguous Example"):
         st.session_state.example = "The movie was okay not great but not terrible"
 
-    default_text = st.session_state.get("example", "")
-
-    # ==================================================
-    # TEXT INPUT
-    # ==================================================
     review = st.text_area(
         "✍️ Enter a movie review:",
-        value=default_text,
+        value=st.session_state.get("example", ""),
         placeholder="Type your movie review here...",
         height=160
     )
@@ -204,7 +195,6 @@ with st.container():
                 st.write(f"📏 Padded length: {MAX_LEN}")
                 st.write("Text → Numbers → Padding → Embedding → RNN → Prediction")
 
-            # SAVE HISTORY
             st.session_state.history.insert(
                 0,
                 {
@@ -216,7 +206,6 @@ with st.container():
             )
             st.session_state.history = st.session_state.history[:5]
 
-            # EXPORT
             export_df = pd.DataFrame([{
                 "Timestamp": datetime.now(),
                 "Review": review,
@@ -231,9 +220,6 @@ with st.container():
                 mime="text/csv"
             )
 
-    # ==================================================
-    # HISTORY TABLE
-    # ==================================================
     if st.session_state.history:
         st.subheader("🕒 Recent Predictions")
         st.table(pd.DataFrame(st.session_state.history))
