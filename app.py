@@ -72,7 +72,8 @@ footer {{
 # ======================================================
 # SAFETY CHECK
 # ======================================================
-MODEL_PATH = "simple_rnn_imdb.h5"
+MODEL_PATH = "simple_rnn_imdb.keras"
+
 
 if not os.path.exists(MODEL_PATH):
     st.error("❌ Model file not found: simple_rnn_imdb.h5")
