@@ -2,69 +2,90 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-import pickle
 import os
 from datetime import datetime
 from tensorflow.keras.datasets import imdb
 from tensorflow.keras.preprocessing import sequence
 
-# ===================== PAGE CONFIG =====================
+# ======================================================
+# PAGE CONFIG
+# ======================================================
 st.set_page_config(
     page_title="🎬 AI Movie Sentiment Analyzer",
     page_icon="🎬",
     layout="centered"
 )
 
-# ===================== THEME TOGGLE =====================
+# ======================================================
+# DARK / LIGHT MODE (WORKING PROPERLY)
+# ======================================================
 dark_mode = st.toggle("🌗 Dark / Light Mode", value=True)
 
-bg = (
-    "linear-gradient(135deg, #0f2027, #203a43, #2c5364)"
-    if dark_mode
-    else "linear-gradient(135deg, #f5f7fa, #c3cfe2)"
-)
+if dark_mode:
+    bg_gradient = "linear-gradient(135deg, #0f2027, #203a43, #2c5364)"
+    card_bg = "rgba(255,255,255,0.08)"
+    text_color = "#ffffff"
+    subtext_color = "#d1d5db"
+else:
+    bg_gradient = "linear-gradient(135deg, #f8fafc, #e2e8f0)"
+    card_bg = "rgba(255,255,255,0.95)"
+    text_color = "#0f172a"
+    subtext_color = "#334155"
 
-text_color = "white" if dark_mode else "#111827"
-
-# ===================== CUSTOM CSS =====================
+# ======================================================
+# CUSTOM CSS (DARK/LIGHT SAFE)
+# ======================================================
 st.markdown(f"""
 <style>
-body {{
-    background: {bg};
+.stApp {{
+    background: {bg_gradient};
     color: {text_color};
 }}
+
 .card {{
-    background: rgba(255, 255, 255, 0.08);
+    background: {card_bg};
     backdrop-filter: blur(16px);
     padding: 30px;
     border-radius: 18px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
 }}
+
 .title {{
     font-size: 40px;
     font-weight: 800;
     text-align: center;
+    color: {text_color};
 }}
+
 .subtitle {{
     text-align: center;
-    opacity: 0.85;
+    color: {subtext_color};
     margin-bottom: 30px;
 }}
+
 footer {{
     visibility: hidden;
 }}
 </style>
 """, unsafe_allow_html=True)
 
-# ===================== SAFETY CHECK =====================
-if not os.path.exists("simple_rnn_imdb.h5"):
+# ======================================================
+# SAFETY CHECK
+# ======================================================
+MODEL_PATH = "simple_rnn_imdb.h5"
+
+if not os.path.exists(MODEL_PATH):
     st.error("❌ Model file not found: simple_rnn_imdb.h5")
     st.stop()
 
-# ===================== LOAD MODEL & WORD INDEX =====================
-@st.cache_resource
+# ======================================================
+# LOAD MODEL (KERAS 3 SAFE – FIXED)
+# ======================================================
 def load_model_and_vocab():
-    model = tf.keras.models.load_model("simple_rnn_imdb.h5")
+    model = tf.keras.models.load_model(
+        MODEL_PATH,
+        compile=False  # 🔥 CRITICAL FIX
+    )
     word_index = imdb.get_word_index()
     return model, word_index
 
@@ -72,14 +93,18 @@ model, word_index = load_model_and_vocab()
 
 MAX_LEN = 500
 
-# ===================== PREPROCESS FUNCTION =====================
+# ======================================================
+# PREPROCESS FUNCTION
+# ======================================================
 def preprocess_text(text):
     words = text.lower().strip().split()
-    encoded = [word_index.get(w, 2) + 3 for w in words]
+    encoded = [word_index.get(word, 2) + 3 for word in words]
     padded = sequence.pad_sequences([encoded], maxlen=MAX_LEN)
     return padded, len(encoded)
 
-# ===================== LIGHTWEIGHT EXPLANATION =====================
+# ======================================================
+# LIGHTWEIGHT EXPLANATION
+# ======================================================
 NEGATIVE_WORDS = {"worst", "bad", "terrible", "awful", "boring", "hate"}
 POSITIVE_WORDS = {"amazing", "great", "fantastic", "excellent", "love"}
 
@@ -94,11 +119,15 @@ def explain_sentence(text):
 
     return explanations if explanations else ["ℹ️ No strong emotional keywords detected"]
 
-# ===================== SESSION HISTORY =====================
+# ======================================================
+# SESSION STATE (HISTORY)
+# ======================================================
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# ===================== HEADER =====================
+# ======================================================
+# HEADER
+# ======================================================
 st.markdown("<div class='title'>🎬 AI Movie Sentiment Analyzer</div>", unsafe_allow_html=True)
 st.markdown(
     "<div class='subtitle'>Simple RNN + Embedding | End-to-End NLP System</div>",
@@ -108,21 +137,25 @@ st.markdown(
 with st.container():
     st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-    # ===================== EXAMPLE BUTTONS =====================
-    colA, colB, colC = st.columns(3)
+    # ==================================================
+    # EXAMPLE BUTTONS
+    # ==================================================
+    c1, c2, c3 = st.columns(3)
 
-    if colA.button("😊 Positive Example"):
+    if c1.button("😊 Positive Example"):
         st.session_state.example = "This movie was absolutely amazing and fantastic"
 
-    if colB.button("😞 Negative Example"):
+    if c2.button("😞 Negative Example"):
         st.session_state.example = "Worst movie I have ever watched boring and awful"
 
-    if colC.button("😐 Ambiguous Example"):
+    if c3.button("😐 Ambiguous Example"):
         st.session_state.example = "The movie was okay not great but not terrible"
 
     default_text = st.session_state.get("example", "")
 
-    # ===================== TEXT INPUT =====================
+    # ==================================================
+    # TEXT INPUT
+    # ==================================================
     review = st.text_area(
         "✍️ Enter a movie review:",
         value=default_text,
@@ -130,10 +163,11 @@ with st.container():
         height=160
     )
 
-    char_count = len(review)
-    st.caption(f"📝 Characters: {char_count}")
+    st.caption(f"📝 Characters: {len(review)}")
 
-    # ===================== PREDICTION =====================
+    # ==================================================
+    # PREDICTION
+    # ==================================================
     if st.button("🚀 Analyze Sentiment", use_container_width=True):
 
         if review.strip() == "":
@@ -143,7 +177,6 @@ with st.container():
             prob = float(model.predict(processed)[0][0])
             percent = int(prob * 100)
 
-            # ===================== BAND LOGIC =====================
             if percent >= 70:
                 band = "🟢 Strong Positive"
             elif percent >= 40:
@@ -151,7 +184,6 @@ with st.container():
             else:
                 band = "🔴 Negative"
 
-            # ===================== DISPLAY =====================
             st.markdown("---")
             st.subheader("📊 Prediction Result")
 
@@ -159,21 +191,18 @@ with st.container():
             st.metric("Sentiment Confidence", f"{percent}%")
             st.write(band)
 
-            # ===================== MODEL LIMITATION =====================
             st.info("ℹ️ Simple RNN may struggle with negation and long sentences.")
 
-            # ===================== EXPLANATION =====================
             st.subheader("🔍 Sentence Insight")
-            for e in explain_sentence(review):
-                st.write(e)
+            for msg in explain_sentence(review):
+                st.write(msg)
 
-            # ===================== PREPROCESSING PREVIEW =====================
             with st.expander("🧠 See how text is processed"):
                 st.write(f"🔢 Tokenized words: {token_len}")
                 st.write(f"📏 Padded length: {MAX_LEN}")
                 st.write("Text → Numbers → Padding → Embedding → RNN → Prediction")
 
-            # ===================== SAVE HISTORY =====================
+            # SAVE HISTORY
             st.session_state.history.insert(
                 0,
                 {
@@ -185,8 +214,8 @@ with st.container():
             )
             st.session_state.history = st.session_state.history[:5]
 
-            # ===================== EXPORT =====================
-            df = pd.DataFrame([{
+            # EXPORT
+            export_df = pd.DataFrame([{
                 "Timestamp": datetime.now(),
                 "Review": review,
                 "Confidence (%)": percent,
@@ -195,12 +224,14 @@ with st.container():
 
             st.download_button(
                 "⬇️ Download Result (CSV)",
-                df.to_csv(index=False),
+                export_df.to_csv(index=False),
                 file_name="sentiment_result.csv",
                 mime="text/csv"
             )
 
-    # ===================== HISTORY =====================
+    # ==================================================
+    # HISTORY TABLE
+    # ==================================================
     if st.session_state.history:
         st.subheader("🕒 Recent Predictions")
         st.table(pd.DataFrame(st.session_state.history))
