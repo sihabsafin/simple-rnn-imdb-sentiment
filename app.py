@@ -73,6 +73,7 @@ footer {{
 # SAFETY CHECK
 # ======================================================
 MODEL_PATH = "simple_rnn_imdb.keras"
+model = tf.keras.models.load_model(MODEL_PATH)
 
 
 if not os.path.exists(MODEL_PATH):
